@@ -1,7 +1,5 @@
-# storage-insights-workflows
 IBM Storage Insights Workflows
 =======
-# Storage Insights Workflows
 
 Turn the IBM Storage Insights OpenAPI description into executable workflows and Python helpers. This repo shows the full path from downloading the upstream spec to running an opinionated workflow that lists block storage systems and surfaces the top systems by volume count.
 
