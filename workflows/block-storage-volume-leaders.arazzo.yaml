@@ -1,0 +1,51 @@
+arazzo: 1.0.0
+info:
+  title: Block Storage Systems Volume Leaders
+  summary: Identify block storage systems and highlight the top performers by volume count.
+  version: 0.1.0
+  description: |
+    This workflow shows how to first enumerate all block storage systems available to a tenant
+    and then call the statistics endpoint that ranks systems by a metric so we can focus on the
+    busiest systems by total volume count. Use it to produce quick inventory snapshots and a
+    leaderboard of the five systems hosting the most volumes.
+sourceDescriptions:
+  - name: storage-insights
+    type: openapi
+    url: ../openapi/openapi.yaml
+workflows:
+  - workflowId: block-storage-volume-leaders
+    summary: List block storage systems and expose data needed to calculate the top five by volumes.
+    description: |
+      Uses the tenant’s UUID plus API credential-derived token to pull block inventory. Each storage
+      system record already includes `volsCount`, so consumers can sort the single response payload to
+      extract the top five systems by volume count without issuing another request.
+    inputs:
+      $ref: '#/components/inputs/tenant_identifier'
+    steps:
+      - stepId: list-block-storage-systems
+        description: Retrieve every block-type storage system registered for the tenant along with capacity metadata.
+        operationPath: $sourceDescriptions.storage-insights.url#/paths/~1restapi~1v1~1tenants~1{tenant_uuid}~1storage-systems/get
+        parameters:
+          - name: tenant_uuid
+            in: path
+            value: $inputs.tenant_uuid
+          - name: storage-type
+            in: query
+            value: block
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          storage_systems: $response.body#/data
+    outputs:
+      block_storage_systems: $steps.list-block-storage-systems.outputs.storage_systems
+
+components:
+  inputs:
+    tenant_identifier:
+      type: object
+      required:
+        - tenant_uuid
+      properties:
+        tenant_uuid:
+          type: string
+          description: The tenant UUID to substitute into every IBM Storage Insights API path.
