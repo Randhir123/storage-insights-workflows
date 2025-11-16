@@ -128,6 +128,36 @@ Under the hood the helper:
 4. Sorts by `volsCount` (falling back to `volumes_count` if needed) and slices `limit` entries.
 5. Returns a dataclass with both the full list and the top subset for downstream automation.
 
+## Block storage alert hotspots
+
+`workflows/block-alert-hotspots.arazzo.yaml` builds on the previous example and chains three calls: list block systems, fetch tenant-wide alerts (critical/warning/info), and pull the alert feed for a specific storage system. The corresponding Python wrapper lives in `src/workflows/block_alerts.py` via `analyze_block_alert_hotspots`.
+
+```bash
+source .venv/bin/activate
+set -a && source .env && set +a
+python - <<'PY'
+from src.workflows import analyze_block_alert_hotspots
+
+result = analyze_block_alert_hotspots(duration="7d")
+for summary in result.ranked_systems[:5]:
+    counts = summary.counts.to_dict()
+    print(summary.system_id, summary.name, counts)
+print("Systems with critical alerts:", [s.name for s in result.critical_systems])
+print("Top system alert types:", result.top_system_alert_types)
+PY
+```
+
+Sample output (UUIDs masked):
+
+```
+system-alpha AlphaBox {'critical': 1, 'warning': 4, 'info': 0, 'total': 5}
+system-beta BetaFrame {'critical': 1, 'warning': 2, 'info': 0, 'total': 3}
+...
+Top system alert types: ['CAPACITY', 'GENERAL']
+```
+
+The helper returns ranked/critical lists plus the alert feed and alert-type summary for the noisiest system, making it easy to route notifications or kick off remediation.
+
 ## Verifying raw API calls
 
 If you need to double-check outside Python:
@@ -149,6 +179,6 @@ curl -sS -X GET \
 
 1. **Author more workflows**: describe scenarios in `workflows/*.arazzo.yaml` using the same pattern—`sourceDescriptions` + steps + outputs.
 2. **Generate SDKs**: once satisfied, run Speakeasy to produce `sdks/python/` and build higher-level wrappers in `src/workflows/` that call the generated client instead of `requests` if you prefer.
-3. **Test**: add `tests/test_block_storage.py` style files that stub HTTP responses so future refactors can be validated without hitting the live APIs.
+3. **Test**: run `pytest` to execute the mocked workflow tests under `tests/`. They stub HTTP responses so refactors don’t require live API calls.
 
 Happy hacking—and feel free to turn these sections into a blog post walking through the entire pipeline: download spec → author workflow → implement helper → run + verify.
