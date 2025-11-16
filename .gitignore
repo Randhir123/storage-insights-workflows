@@ -1,6 +1,29 @@
-creds
-.env
-.venv/
-.cache/
-__pycache__/
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
 *.pyc
+__pycache__/
+.venv/
+.mypy_cache/
+.pytype/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local env & secrets
+.env
+.env.*.local
+creds
+.cache/
+
+# Build/packaging
+dist/
+build/
+*.egg-info/
+
+# Speakeasy/OpenAPI (keep config, ignore artifacts if any)
+.speakeasy/cache/
+openapi-cache/
