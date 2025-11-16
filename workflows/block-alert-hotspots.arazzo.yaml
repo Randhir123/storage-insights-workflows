@@ -1,0 +1,102 @@
+arazzo: 1.0.0
+info:
+  title: Block Storage Alert Hotspots
+  summary: Identify block storage systems with the most alerts and inspect the top offender.
+  version: 0.1.0
+  description: |
+    Multi-step workflow that pulls block storage inventory, fetches tenant-wide alerts
+    across critical/warning/info severities, and drills into a specific storage system's
+    alert feed. Client code can rank systems by severity counts and plug the UUID of the
+    hottest system into the final step to retrieve alert details/types.
+sourceDescriptions:
+  - name: storage-insights
+    type: openapi
+    url: ../openapi/openapi.yaml
+workflows:
+  - workflowId: block-alert-hotspots
+    summary: Gather block systems, tenant alerts, and detailed alerts for a chosen system.
+    inputs:
+      $ref: '#/components/inputs/tenant_alert_inputs'
+    steps:
+      - stepId: list-block-storage-systems
+        description: Retrieve the complete set of block storage systems for the tenant.
+        operationPath: $sourceDescriptions.storage-insights.url#/paths/~1restapi~1v1~1tenants~1{tenant_uuid}~1storage-systems/get
+        parameters:
+          - name: tenant_uuid
+            in: path
+            value: $inputs.tenant_uuid
+          - name: storage-type
+            in: query
+            value: block
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          storage_systems: $response.body#/data
+
+      - stepId: list-tenant-alerts
+        description: Fetch tenant-wide alerts limited to critical, warning, and info severities for the requested duration.
+        operationPath: $sourceDescriptions.storage-insights.url#/paths/~1restapi~1v1~1tenants~1{tenant_uuid}~1alerts/get
+        parameters:
+          - name: tenant_uuid
+            in: path
+            value: $inputs.tenant_uuid
+          - name: duration
+            in: query
+            value: $inputs.duration
+          - name: severity
+            in: query
+            value:
+              - critical
+              - warning
+              - info
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          alerts: $response.body#/data
+
+      - stepId: get-storage-system-alerts
+        description: Retrieve all alerts for the selected storage system so the client can inspect alert types/categories.
+        operationPath: $sourceDescriptions.storage-insights.url#/paths/~1restapi~1v1~1tenants~1{tenant_uuid}~1storage-systems~1{storage_system_uuid}~1alerts/get
+        parameters:
+          - name: tenant_uuid
+            in: path
+            value: $inputs.tenant_uuid
+          - name: storage_system_uuid
+            in: path
+            value: $inputs.target_storage_system_uuid
+          - name: duration
+            in: query
+            value: $inputs.duration
+          - name: severity
+            in: query
+            value:
+              - critical
+              - warning
+              - info
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          system_alerts: $response.body#/data
+    outputs:
+      block_storage_systems: $steps.list-block-storage-systems.outputs.storage_systems
+      tenant_alerts: $steps.list-tenant-alerts.outputs.alerts
+      focused_system_alerts: $steps.get-storage-system-alerts.outputs.system_alerts
+
+components:
+  inputs:
+    tenant_alert_inputs:
+      type: object
+      required:
+        - tenant_uuid
+        - target_storage_system_uuid
+      properties:
+        tenant_uuid:
+          type: string
+          description: IBM Storage Insights tenant UUID.
+        duration:
+          type: string
+          description: Alert lookback window (defaults to 28 days if omitted).
+          default: 28d
+        target_storage_system_uuid:
+          type: string
+          description: UUID of the storage system whose alerts should be fetched in the final step.
